@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EngageSense: Real-Time Audio Engagement</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://unpkg.com/wavesurfer.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/meyda/5.4.0/meyda.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>EngageSense: Real-Time Audio Engagement</h1>
+    </header>
+
+    <main class="container">
+        <!-- Intro Section -->
+        <section id="intro" class="text-center">
+            <h2>Welcome to EngageSense</h2>
+            <p>Analyze real-time audio engagement and sentiment using advanced AI models.</p>
+            <button id="startBtn" class="btn btn-primary">Start Analysis</button>
+        </section>
+
+        <!-- Application Section -->
+        <section id="app" style="display: none;">
+            <div class="controls text-center">
+                <button id="recordBtn" class="btn btn-success">Record Audio</button>
+                <button id="stopBtn" class="btn btn-danger" disabled>Stop Recording</button>
+                <button id="uploadBtn" class="btn btn-light">Upload Audio</button>
+                <input type="file" id="fileInput" accept="audio/*" style="display: none;">
+                <button id="downloadBtn" class="btn btn-info">Download Report</button>
+            </div>
+
+            <!-- Visualizations -->
+            <div id="waveform" class="waveform-container"></div>
+            <canvas id="sentimentChart" width="400" height="200"></canvas>
+
+            <!-- Metrics Display -->
+            <div class="metrics">
+                <p>Loudness (RMS): <span id="rms">N/A</span></p>
+                <p>Spectral Centroid: <span id="centroid">N/A</span></p>
+                <p>Pitch: <span id="pitch">N/A</span></p>
+                <p>Sentiment: <span id="sentiment">N/A</span></p>
+                <p>Engagement Score: <span id="engagement">N/A</span></p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileInput = document.getElementById('fileInput');
+        const waveformContainer = document.getElementById('waveform');
+        const sentimentChartCanvas = document.getElementById('sentimentChart');
+        const sentimentDisplay = document.getElementById('sentiment');
+        const rmsDisplay = document.getElementById('rms');
+        const pitchDisplay = document.getElementById('pitch');
+        const centroidDisplay = document.getElementById('centroid');
+        const engagementDisplay = document.getElementById('engagement');
+
+        let wavesurfer;
+        let sentimentChart;
+        let audioContext;
+        let analyser;
+        let microphone;
+        let recorder;
+        let recordedChunks = [];
+
+        // Initialize WaveSurfer
+        function initWaveSurfer() {
+            wavesurfer = WaveSurfer.create({
+                container: waveformContainer,
+                waveColor: 'lime',
+                progressColor: 'green',
+                cursorColor: 'red',
+                barWidth: 2,
+                responsive: true
+            });
+        }
+
+        // Start Recording
+        async function startRecording() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioContext = new AudioContext();
+            microphone = audioContext.createMediaStreamSource(stream);
+            analyser = audioContext.createAnalyser();
+            microphone.connect(analyser);
+
+            recorder = new MediaRecorder(stream);
+            recorder.start();
+            recordedChunks = [];
+
+            recorder.ondataavailable = event => recordedChunks.push(event.data);
+            recordBtn.disabled = true;
+            stopBtn.disabled = false;
+            visualizeAudio();
+        }
+
+        // Stop Recording
+        function stopRecording() {
+            recorder.stop();
+            recordBtn.disabled = false;
+            stopBtn.disabled = true;
+
+            recorder.onstop = () => {
+                const audioBlob = new Blob(recordedChunks, { type: 'audio/wav' });
+                wavesurfer.loadBlob(audioBlob);
+                processAudioData(audioBlob);
+            };
+        }
+
+        // Audio Visualization
+        function visualizeAudio() {
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            function draw() {
+                analyser.getByteFrequencyData(dataArray);
+                requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        // Sentiment Chart Initialization
+        function initSentimentChart() {
+            const ctx = sentimentChartCanvas.getContext('2d');
+            sentimentChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Positive', 'Neutral', 'Negative'],
+                    datasets: [{
+                        label: 'Sentiment Scores',
+                        backgroundColor: ['green', 'yellow', 'red'],
+                        data: [0, 0, 0]
+                    }]
+                },
+                options: { responsive: true }
+            });
+        }
+
+        // Audio Processing Placeholder
+        async function processAudioData(audioBlob) {
+            // Feature extraction using TensorFlow.js or Meyda would go here
+            // Dummy data for now:
+            const sentimentScores = [0.7, 0.2, 0.1];
+            sentimentDisplay.textContent = 'Positive';
+            rmsDisplay.textContent = '0.65';
+            pitchDisplay.textContent = '250 Hz';
+            centroidDisplay.textContent = '800 Hz';
+            engagementDisplay.textContent = '85%';
+
+            // Update chart
+            sentimentChart.data.datasets[0].data = sentimentScores;
+            sentimentChart.update();
+        }
+
+        // Button Event Listeners
+        recordBtn.addEventListener('click', startRecording);
+        stopBtn.addEventListener('click', stopRecording);
+        uploadBtn.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', event => {
+            const file = event.target.files[0];
+            if (file) {
+                const audioURL = URL.createObjectURL(file);
+                wavesurfer.load(audioURL);
+                processAudioData(file);
+            }
+        });
+
+        // Initialize Components
+        initWaveSurfer();
+        initSentimentChart();
+    </script>
+</body>
+</html>
